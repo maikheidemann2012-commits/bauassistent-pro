@@ -130,12 +130,12 @@ export default function SprachePage() {
   }
 
   function angebotUebernehmen() {
-    if (!text.trim()) {
-      setFehler("⚠️ Bitte erst etwas sprechen oder eingeben!");
-      return;
-    }
-    localStorage.setItem("acKiamseSprachText", text.trim());
-    window.location.href = "/angebot";
+      if (!text.trim()) {
+        setFehler("⚠️ Bitte erst etwas sprechen oder eingeben!");
+        return;
+      }
+      const encoded = encodeURIComponent(text.trim());
+      window.location.href = `/angebot?sprachtext=${encoded}`;
   }
 
   function formatZeit(sek: number) {

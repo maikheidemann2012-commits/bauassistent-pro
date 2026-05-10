@@ -78,11 +78,11 @@ export default function AngebotPage() {
       localStorage.removeItem("fotoKosten");
     }
 
-    const sprachText = localStorage.getItem("acKiamseSprachText");
+    const params = new URLSearchParams(window.location.search);
+    const sprachText = params.get("sprachtext");
     if (sprachText) {
-      setLeistungBeschreibung(sprachText);
+      setLeistungBeschreibung(decodeURIComponent(sprachText));
       setAktuellerTab("leistung");
-      localStorage.removeItem("acKiamseSprachText");
     }
   }, []);
 
