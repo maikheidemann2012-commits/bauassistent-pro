@@ -67,8 +67,8 @@ export default function SprachePage() {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.lang = "de-DE";
-      recognition.continuous = true;
-      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.interimResults = false;
       recognition.maxAlternatives = 3;
 
       recognition.onresult = (e: any) => {
@@ -97,7 +97,7 @@ export default function SprachePage() {
       };
 
       recognition.onend = () => {
-        if (aufnahme) recognition.start();
+        // nicht neu starten
       };
 
       recognition.start();
