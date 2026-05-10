@@ -5,81 +5,84 @@ import { useState, useRef } from "react";
 export default function SprachePage() {
   const [text, setText] = useState("");
   const [aufnahme, setAufnahme] = useState(false);
-  const [laden, setLaden] = useState(false);
   const [fehler, setFehler] = useState("");
   const [aufnahmeZeit, setAufnahmeZeit] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
   async function aufnahmeStarten() {
     setFehler("");
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      chunksRef.current = [];
+      await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        setFehler("❌ Spracherkennung nicht verfügbar. Bitte Text manuell eingeben!");
+        return;
+      }
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+      const recognition = new SpeechRecognition();
+      recognition.lang = "de-DE";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      let finalText = "";
+
+      recognition.onresult = (e: any) => {
+        let interim = "";
+        for (let i = 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            finalText += e.results[i][0].transcript + " ";
+            setText(finalText);
+          } else {
+            interim += e.results[i][0].transcript;
+          }
+        }
+        if (interim) setText(finalText + interim);
       };
 
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        await transkribieren(blob);
-        stream.getTracks().forEach((t) => t.stop());
+      recognition.onerror = (e: any) => {
+        if (e.error === "not-allowed") {
+          setFehler("❌ Mikrofon-Zugriff verweigert!");
+        } else if (e.error === "no-speech") {
+          setFehler("🔇 Kein Ton erkannt — bitte lauter sprechen!");
+        } else if (e.error === "network") {
+          setFehler("⚠️ Netzwerkfehler — bitte Text manuell eingeben!");
+        } else {
+          setFehler(`⚠️ Fehler: ${e.error} — bitte Text manuell eingeben!`);
+        }
+        setAufnahme(false);
+        if (timerRef.current) clearInterval(timerRef.current);
       };
 
-      mediaRecorder.start();
+      recognition.onend = () => {
+        setAufnahme(false);
+        if (timerRef.current) clearInterval(timerRef.current);
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
       setAufnahme(true);
       setAufnahmeZeit(0);
+
       timerRef.current = setInterval(() => {
         setAufnahmeZeit((prev) => prev + 1);
       }, 1000);
+
     } catch (err) {
-      setFehler("❌ Mikrofon konnte nicht gestartet werden! Bitte Zugriff erlauben.");
+      setFehler("❌ Mikrofon konnte nicht gestartet werden!");
     }
   }
 
   function aufnahmeStoppen() {
-    if (mediaRecorderRef.current && aufnahme) {
-      mediaRecorderRef.current.stop();
-      setAufnahme(false);
-      setLaden(true);
-      if (timerRef.current) clearInterval(timerRef.current);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
     }
-  }
-
-  async function transkribieren(blob: Blob) {
-    try {
-      // Audio zu Base64 konvertieren
-      const arrayBuffer = await blob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = "";
-      uint8Array.forEach((b) => (binary += String.fromCharCode(b)));
-      const base64 = btoa(binary);
-
-      // Zur Anthropic API schicken
-      const response = await fetch("/api/transkribieren", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: base64 }),
-      });
-
-      const data = await response.json();
-      if (data.text) {
-        setText((prev) => prev ? prev + " " + data.text : data.text);
-      } else {
-        setFehler("⚠️ KI konnte nichts erkennen — bitte nochmal versuchen!");
-      }
-    } catch (err) {
-      setFehler("⚠️ Fehler bei der KI-Verarbeitung — bitte nochmal versuchen!");
-    } finally {
-      setLaden(false);
-    }
+    setAufnahme(false);
+    if (timerRef.current) clearInterval(timerRef.current);
   }
 
   function textLoeschen() {
@@ -145,15 +148,7 @@ export default function SprachePage() {
 
           {/* Status */}
           <div className="text-center">
-            {laden ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"/>
-                  <span className="font-black text-emerald-400">KI verarbeitet...</span>
-                </div>
-                <p className="text-slate-400 text-sm">Bitte warten</p>
-              </div>
-            ) : aufnahme ? (
+            {aufnahme ? (
               <div className="space-y-1">
                 <div className="flex items-center justify-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse"/>
@@ -162,7 +157,7 @@ export default function SprachePage() {
                 <p className="text-slate-400 text-sm font-mono">{formatZeit(aufnahmeZeit)}</p>
               </div>
             ) : text ? (
-              <p className="text-emerald-400 font-bold">✅ Aufnahme bereit</p>
+              <p className="text-emerald-400 font-bold">✅ Text erkannt!</p>
             ) : (
               <p className="text-slate-500">Drücke den Button und sprich</p>
             )}
@@ -171,20 +166,17 @@ export default function SprachePage() {
           {/* Aufnahme Button */}
           <button
             onClick={aufnahme ? aufnahmeStoppen : aufnahmeStarten}
-            disabled={laden}
             className={`flex h-24 w-24 items-center justify-center rounded-full text-4xl font-black shadow-2xl transition-all duration-200 active:scale-95 ${
-              laden
-                ? "bg-slate-700 cursor-wait"
-                : aufnahme
+              aufnahme
                 ? "bg-red-500 shadow-red-500/40 animate-pulse scale-110"
                 : "bg-emerald-500 shadow-emerald-500/40 hover:scale-105"
             }`}
           >
-            {laden ? "⏳" : aufnahme ? "⏹" : "🎤"}
+            {aufnahme ? "⏹" : "🎤"}
           </button>
 
           <p className="text-xs text-slate-500">
-            {laden ? "KI analysiert deine Sprache..." : aufnahme ? "Tippe zum Stoppen" : "Tippe zum Starten"}
+            {aufnahme ? "Tippe zum Stoppen" : "Tippe zum Starten"}
           </p>
         </div>
 
