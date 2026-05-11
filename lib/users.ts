@@ -14,4 +14,11 @@ export const users: User[] = [
     name: "Maik Heidemann",
     aktiv: true,
   },
+  {
+    id: "2",
+    email: "demo@123.de",
+    password: "123",
+    name: "Max Mustermann",
+    aktiv: true,
+  },
 ];
