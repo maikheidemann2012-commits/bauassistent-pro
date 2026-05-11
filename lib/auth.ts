@@ -10,6 +10,7 @@ export async function login(email: string, password: string) {
   const user = users.find(
     (u) => u.email === email && u.password === password && u.aktiv
   );
+
   if (!user) return null;
 
   const token = await new SignJWT({ id: user.id, email: user.email, name: user.name })
