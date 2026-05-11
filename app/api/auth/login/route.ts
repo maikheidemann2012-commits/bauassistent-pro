@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { login } from "../../../../lib/auth";
+import { login } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       { error: "Email oder Passwort falsch!" },
       { status: 401 }
     );
-  }
+  
 
   const response = NextResponse.json({ success: true });
   response.cookies.set("auth-token", token, {
