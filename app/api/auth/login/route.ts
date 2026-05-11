@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       { error: "Email oder Passwort falsch!" },
       { status: 401 }
     );
-  
+  }
 
   const response = NextResponse.json({ success: true });
   response.cookies.set("auth-token", token, {
